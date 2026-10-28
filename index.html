@@ -6,7 +6,7 @@
 </style></head><body>
 <header><div><h1>美颜工坊</h1><small>精细分区 / 风景调色 / 原尺寸输出</small></div><span class="tag">照片本地处理</span><nav class="modebar" aria-label="编辑模式"><button data-mode="portrait" class="active">人像美颜</button><button data-mode="landscape">风景修图</button><button data-mode="video">视频调色</button></nav></header>
 <div class="layout">
-<aside class="card sidebar left"><label class="drop" id="dropZone" style="cursor:pointer" onclick="return false"><b>打开照片</b><span class="hint">点击选择或拖入 JPG / PNG / WebP</span><input type="file" id="fileInput" class="fileinput" accept="image/*,video/*"></label><img id="thumbnail" class="thumb hidden" alt="原片缩略图"><div id="fileMeta" class="filemeta">原文件不会被覆盖。</div>
+<aside class="card sidebar left"><div class="drop" id="dropZone" role="button" tabindex="0" aria-controls="fileInput" aria-label="打开照片，可点击选择或拖入 JPG、PNG、WebP 文件"><b>打开照片</b><span class="hint">点击选择或拖入 JPG / PNG / WebP</span><input type="file" id="fileInput" class="fileinput" accept="image/*,video/*"></div><img id="thumbnail" class="thumb hidden" alt="原片缩略图"><div id="fileMeta" class="filemeta">原文件不会被覆盖。</div>
 <div class="section-title">调整范围</div><select id="scope" class="full"><option value="local">仅局部 · 其他像素保持原样</option><option value="global">全照片 · 整体强度控制</option></select><div id="scopeNote" class="scopebanner">先选择部位，查看绿色蒙版，再确认选区。局部模式不叠加全图参数。</div>
 <div id="faceTools"><div class="section-title">人脸与身体定位 <span class="tag">不猜测</span></div><div class="row"><button id="detectFace" class="small-btn">识别五官</button><button id="roiFace" class="small-btn">框选小脸重检</button></div><div id="modelStatus" class="hint" role="status">人脸与皮肤模型已内嵌，可离线识别。身体分区需联网。</div><div class="row"><select id="faceSelect" aria-label="目标人脸"><option value="0">等待人脸识别</option></select><button id="focusFace" class="small-btn">放大脸部</button></div><div class="region-grid" id="faceRegions"></div><div class="actions"><button id="detectBody">识别身体</button><select id="bodySelect" aria-label="目标身体"><option value="0">身体 1</option></select></div><div class="region-grid" id="bodyRegions"></div>
 <div class="section-title" style="margin-top:10px">颈部 <span class="tag">需人脸关键点</span></div>
@@ -874,8 +874,12 @@ function buildPresets(){$('presets').replaceChildren();let presets=S.mode==='por
 $('fileInput').onchange=e=>{if(e.target.files[0])loadFile(e.target.files[0]);e.target.value=''};
 // Label wraps the input but dragover/drop use preventDefault which can break native label→input click
 // in some browsers (especially when served as file://). Explicitly trigger the input on click.
-$('dropZone').addEventListener('click',e=>{if(S.exporting)return;$('fileInput').click()});
-['dragover','drop'].forEach(ev=>$('dropZone').addEventListener(ev,e=>{e.preventDefault();if(ev==='drop'&&e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0])}));
+const openFilePicker=()=>{if(S.exporting)return;let input=$('fileInput');input.value='';input.click()};
+$('dropZone').addEventListener('click',openFilePicker);
+$('dropZone').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();openFilePicker()}});
+$('dropZone').addEventListener('dragover',e=>{e.preventDefault();e.stopPropagation();$('dropZone').classList.add('dragover')});
+$('dropZone').addEventListener('dragleave',e=>{e.preventDefault();$('dropZone').classList.remove('dragover')});
+$('dropZone').addEventListener('drop',e=>{e.preventDefault();e.stopPropagation();$('dropZone').classList.remove('dragover');let file=e.dataTransfer?.files?.[0];if(file)loadFile(file)});
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));document.querySelectorAll('[data-manual]').forEach(b=>b.onclick=()=>selectRegion(b.dataset.manual));
 $('scope').onchange=()=>{remember();S.scope=$('scope').value;S.tool=null;refreshUI();drawOverlay();schedule()};$('master').onpointerdown=remember;$('master').oninput=()=>{if(!controlsAllowed())return;let v=Number($('master').value);if(S.scope==='global')S.globalMaster=v;else selectedLayer().master=v;$('masterValue').value=v+'%';schedule()};$('detectFace').onclick=()=>detectFaces();$('detectBody').onclick=detectBody;$('roiFace').onclick=()=>{if(!S.source||S.detecting)return;S.tool='roi';toast('在照片上拖出包含完整面部的方框（尽量不含大面积背景）')};
 $('faceSelect').onchange=()=>{S.faceIndex=Number($('faceSelect').value);selectRegion('skin')};$('bodySelect').onchange=()=>{S.bodyIndex=Number($('bodySelect').value);selectRegion('torso')};
